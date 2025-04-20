@@ -9,3 +9,6 @@ type Token struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	IsRefresh bool      `json:"is_refresh"`
 }
+func (t *Token) GetID() int64 {
+	return t.UserID
+}
