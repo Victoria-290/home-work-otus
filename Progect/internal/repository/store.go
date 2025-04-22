@@ -7,33 +7,55 @@ import (
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/auth"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/task"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/user"
-	"github.com/Victoria-290/home-work-otus/Progect/internal/storable"
 )
 
-// Инициализируем "память"
-var (
-	users  []user.User
-	tasks  []task.Task
-	tokens []auth.Token
+// Storable — универсальный интерфейс, который реализуют все сущности.
+// Он позволяет передавать в Store() любые поддерживаемые типы.
+type Storable interface {
+	GetID() int64
+}
 
-	mu sync.Mutex
+// Мьютексы для каждого типа сущности —
+// позволяют избежать блокировки всех операций при добавлении только одного типа данных.
+var (
+	usersMu  sync.Mutex
+	tasksMu  sync.Mutex
+	tokensMu sync.Mutex
+
+	users  []*user.User
+	tasks  []*task.Task
+	tokens []*auth.Token
 )
 
 // Store сохраняет сущность в нужный слайс по типу
-func Store(s storable.Storable) {
-	mu.Lock()
-	defer mu.Unlock()
-
+// Принимает сущность, реализующую интерфейс Storable,
+// и добавляет её в соответствующее хранилище в памяти.
+// Каждая ветка защищена своим мьютексом для минимизации блокировок.
+func Store(s Storable) {
 	switch v := s.(type) {
+
+	// Добавление пользователя
 	case *user.User:
-		users = append(users, *v)
+		usersMu.Lock()
+		defer usersMu.Unlock()
+		users = append(users, v)
 		fmt.Println("Stored User:", v.Email)
+
+	// Добавление задачи
 	case *task.Task:
-		tasks = append(tasks, *v)
+		tasksMu.Lock()
+		defer tasksMu.Unlock()
+		tasks = append(tasks, v)
 		fmt.Println("Stored Task:", v.Title)
+
+	// Добавление токена
 	case *auth.Token:
-		tokens = append(tokens, *v)
+		tokensMu.Lock()
+		defer tokensMu.Unlock()
+		tokens = append(tokens, v)
 		fmt.Println("Stored Token for user ID:", v.UserID)
+
+	// Неизвестный тип — не сохраняем
 	default:
 		fmt.Println("Unknown type, not stored")
 	}
