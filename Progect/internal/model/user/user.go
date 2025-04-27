@@ -32,3 +32,6 @@ func (u *User) SetPassword(newPassword string) {
 	// Здесь можно захешировать, пока просто присваиваем
 	u.password = newPassword
 }
+func (u *User) GetID() int64 {
+	return u.ID
+}

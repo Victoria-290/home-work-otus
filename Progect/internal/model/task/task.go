@@ -41,3 +41,6 @@ func (t *Task) ChangeStatus(newStatus Status) {
 	t.Status = newStatus
 	t.UpdatedAt = time.Now()
 }
+func (t *Task) GetID() int64 {
+	return t.ID
+}
