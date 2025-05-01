@@ -1,72 +1,72 @@
 package repository
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/auth"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/task"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/user"
 )
-// EntityEvent - обертка для передачи сущности через канал
-type EntityEvent struct {
-	Entity Storable
-}
 
-// Storable — универсальный интерфейс, который реализуют все сущности.
-// Он позволяет передавать в Store() любые поддерживаемые типы.
-type Storable interface {
-	GetID() int64
-}
-
-// Мьютексы для каждого типа сущности —
-// позволяют избежать блокировки всех операций при добавлении только одного типа данных.
+// Мьютексы для обеспечения конкурентного доступа к слайсам
 var (
-	usersMu  sync.Mutex
-	tasksMu  sync.Mutex
-	tokensMu sync.Mutex
+	usersMu  sync.RWMutex
+	tasksMu  sync.RWMutex
+	tokensMu sync.RWMutex
+)
 
+// Слайсы для хранения сущностей
+var (
 	users  []*user.User
 	tasks  []*task.Task
 	tokens []*auth.Token
 )
 
-// StartStorageReader - горутина для чтения из канала и сохранения в слайсы
-func StartStorageReader(ch <-chan EntityEvent) {
-	for event := range ch {
-		Store(event.Entity)
-	}
+// AddUser безопасно добавляет нового пользователя в слайс
+func AddUser(u *user.User) {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	users = append(users, u)
 }
 
-// Store - сохраняет сущность в нужный слайс
-func Store(s Storable) {
-	switch v := s.(type) {
-		// Добавление пользователя
-	case *user.User:
-		usersMu.Lock()
-		defer usersMu.Unlock()
-		users = append(users, v)
-		fmt.Println("Stored User:", v.Email)
-		// Добавление задачи
-	case *task.Task:
-		tasksMu.Lock()
-		defer tasksMu.Unlock()
-		tasks = append(tasks, v)
-		fmt.Println("Stored Task:", v.Title)
-		// Добавление токена
-	case *auth.Token:
-		tokensMu.Lock()
-		defer tokensMu.Unlock()
-		tokens = append(tokens, v)
-		fmt.Println("Stored Token for user ID:", v.UserID)
-		// Неизвестный тип — не сохраняем
-	default:
-		fmt.Println("Unknown type, not stored")
-	}
+// AddTask безопасно добавляет новую задачу в слайс
+func AddTask(t *task.Task) {
+	tasksMu.Lock()
+	defer tasksMu.Unlock()
+	tasks = append(tasks, t)
 }
-// StoreFromChannel принимает события через канал и вызывает Store
-func StoreFromChannel(ch <-chan EntityEvent) {
-	for event := range ch {
-		Store(event.Entity)
-	}
+
+// AddToken безопасно добавляет новый токен в слайс
+func AddToken(tok *auth.Token) {
+	tokensMu.Lock()
+	defer tokensMu.Unlock()
+	tokens = append(tokens, tok)
+}
+
+// GetUsersSnapshot возвращает копию текущего слайса пользователей
+func GetUsersSnapshot() []*user.User {
+	usersMu.RLock()
+	defer usersMu.RUnlock()
+	snapshot := make([]*user.User, len(users))
+	copy(snapshot, users)
+	return snapshot
+}
+
+// GetTasksSnapshot возвращает копию текущего слайса задач
+func GetTasksSnapshot() []*task.Task {
+	tasksMu.RLock()
+	defer tasksMu.RUnlock()
+	snapshot := make([]*task.Task, len(tasks))
+	copy(snapshot, tasks)
+	return snapshot
+}
+
+// GetTokensSnapshot возвращает копию текущего слайса токенов
+func GetTokensSnapshot() []*auth.Token {
+	tokensMu.RLock()
+	defer tokensMu.RUnlock()
+	snapshot := make([]*auth.Token, len(tokens))
+	copy(snapshot, tokens)
+	return snapshot
 }
