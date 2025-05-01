@@ -1,62 +1,72 @@
 package repository
 
 import (
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/auth"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/task"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/user"
 )
 
-// Storable — универсальный интерфейс, который реализуют все сущности.
-// Он позволяет передавать в Store() любые поддерживаемые типы.
-type Storable interface {
-	GetID() int64
-}
-
-// Мьютексы для каждого типа сущности —
-// позволяют избежать блокировки всех операций при добавлении только одного типа данных.
+// Мьютексы для обеспечения конкурентного доступа к слайсам
 var (
-	usersMu  sync.Mutex
-	tasksMu  sync.Mutex
-	tokensMu sync.Mutex
+	usersMu  sync.RWMutex
+	tasksMu  sync.RWMutex
+	tokensMu sync.RWMutex
+)
 
+// Слайсы для хранения сущностей
+var (
 	users  []*user.User
 	tasks  []*task.Task
 	tokens []*auth.Token
 )
 
-// Store сохраняет сущность в нужный слайс по типу
-// Принимает сущность, реализующую интерфейс Storable,
-// и добавляет её в соответствующее хранилище в памяти.
-// Каждая ветка защищена своим мьютексом для минимизации блокировок.
-func Store(s Storable) {
-	switch v := s.(type) {
+// AddUser безопасно добавляет нового пользователя в слайс
+func AddUser(u *user.User) {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	users = append(users, u)
+}
 
-	// Добавление пользователя
-	case *user.User:
-		usersMu.Lock()
-		defer usersMu.Unlock()
-		users = append(users, v)
-		fmt.Println("Stored User:", v.Email)
+// AddTask безопасно добавляет новую задачу в слайс
+func AddTask(t *task.Task) {
+	tasksMu.Lock()
+	defer tasksMu.Unlock()
+	tasks = append(tasks, t)
+}
 
-	// Добавление задачи
-	case *task.Task:
-		tasksMu.Lock()
-		defer tasksMu.Unlock()
-		tasks = append(tasks, v)
-		fmt.Println("Stored Task:", v.Title)
+// AddToken безопасно добавляет новый токен в слайс
+func AddToken(tok *auth.Token) {
+	tokensMu.Lock()
+	defer tokensMu.Unlock()
+	tokens = append(tokens, tok)
+}
 
-	// Добавление токена
-	case *auth.Token:
-		tokensMu.Lock()
-		defer tokensMu.Unlock()
-		tokens = append(tokens, v)
-		fmt.Println("Stored Token for user ID:", v.UserID)
+// GetUsersSnapshot возвращает копию текущего слайса пользователей
+func GetUsersSnapshot() []*user.User {
+	usersMu.RLock()
+	defer usersMu.RUnlock()
+	snapshot := make([]*user.User, len(users))
+	copy(snapshot, users)
+	return snapshot
+}
 
-	// Неизвестный тип — не сохраняем
-	default:
-		fmt.Println("Unknown type, not stored")
-	}
+// GetTasksSnapshot возвращает копию текущего слайса задач
+func GetTasksSnapshot() []*task.Task {
+	tasksMu.RLock()
+	defer tasksMu.RUnlock()
+	snapshot := make([]*task.Task, len(tasks))
+	copy(snapshot, tasks)
+	return snapshot
+}
+
+// GetTokensSnapshot возвращает копию текущего слайса токенов
+func GetTokensSnapshot() []*auth.Token {
+	tokensMu.RLock()
+	defer tokensMu.RUnlock()
+	snapshot := make([]*auth.Token, len(tokens))
+	copy(snapshot, tokens)
+	return snapshot
 }
