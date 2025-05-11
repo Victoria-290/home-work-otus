@@ -4,50 +4,40 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Victoria-290/home-work-otus/Progect/internal/model/auth"
-	"github.com/Victoria-290/home-work-otus/Progect/internal/model/task"
-	"github.com/Victoria-290/home-work-otus/Progect/internal/model/user"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/repository"
 )
 
-// StartLogger запускает процесс логирования изменений в слайсах пользователей, задач и токенов.
-// Проверка выполняется каждые 200 мс. Если найдены новые элементы — они выводятся в консоль.
+// StartLogger запускается в горутине и каждые 200 мс проверяет изменения в слайсах
+// При появлении новых элементов — логирует их в консоль
 func StartLogger() {
-	var prevUsersLen, prevTasksLen, prevTokensLen int
+	var lastUsersCount, lastTasksCount, lastTokensCount int
 
 	for {
 		time.Sleep(200 * time.Millisecond)
 
-		// Получаем копии текущих слайсов
-		usersSnapshot := repository.GetUsersSnapshot()
-		tasksSnapshot := repository.GetTasksSnapshot()
-		tokensSnapshot := repository.GetTokensSnapshot()
-
-		// Логируем новых пользователей
-		if len(usersSnapshot) > prevUsersLen {
-			newUsers := usersSnapshot[prevUsersLen:]
-			for _, u := range newUsers {
-				fmt.Printf("[Logger] New user added: ID=%d, Email=%s\n", u.ID, u.Email())
+		// Получаем текущее состояние слайсов из репозитория
+		users := repository.GetUsers()
+		if len(users) > lastUsersCount {
+			for _, u := range users[lastUsersCount:] {
+				fmt.Printf("[Logger] New user added: ID=%d, Email=%s\n", u.ID, u.Email)
 			}
-			prevUsersLen = len(usersSnapshot)
+			lastUsersCount = len(users)
 		}
 
-		// Логируем новые задачи
-		if len(tasksSnapshot) > prevTasksLen {
-			newTasks := tasksSnapshot[prevTasksLen:]
-			for _, t := range newTasks {
-				fmt.Printf("[Logger] New task added: ID=%d, Title=%s, OwnerID=%d\n", t.ID, t.Title(), t.OwnerID())
+		tasks := repository.GetTasks()
+		if len(tasks) > lastTasksCount {
+			for _, t := range tasks[lastTasksCount:] {
+				fmt.Printf("[Logger] New task added: ID=%d, Title=%s, OwnerID=%d\n", t.ID, t.Title, t.OwnerID)
 			}
-			prevTasksLen = len(tasksSnapshot)
+			lastTasksCount = len(tasks)
 		}
 
-		// Логируем новые токены
-		if len(tokensSnapshot) > prevTokensLen {
-			newTokens := tokensSnapshot[prevTokensLen:]
-			for _, tok := range newTokens {
-				fmt.Printf("[Logger] New token added: UserID=%d, ExpiresAt=%s\n", tok.UserID, tok.ExpiresAt.Format(time.RFC3339))
+		tokens := repository.GetTokens()
+		if len(tokens) > lastTokensCount {
+			for _, tok := range tokens[lastTokensCount:] {
+				fmt.Printf("[Logger] New token added for UserID=%d, Expires=%s\n", tok.UserID, tok.ExpiresAt)
 			}
-			prevTokensLen = len(tokensSnapshot)
+			lastTokensCount = len(tokens)
 		}
 	}
 }

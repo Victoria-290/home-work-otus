@@ -1,23 +1,21 @@
 package main
 
 import (
-	"github.com/Victoria-290/home-work-otus/Progect/internal/repository"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/service"
 )
 
 func main() {
-	// Канал для передачи сущностей между генератором и хранилищем
-	eventChan := make(chan service.EntityEvent)
+	eventChannel := make(chan service.EntityEvent, 100)
 
-	// Запуск горутины генератора (создает сущности и отправляет в канал)
-	go service.StartGenerator(eventChan)
+	// Запускаем асинхронную обработку сущностей
+	go service.StoreFromChannel(eventChannel)
 
-	// Запуск горутины асинхронного сохранения (слой сервиса, не репозиторий)
-	go service.StoreFromChannel(eventChan)
-
-	// Запуск горутины логгера (сервис отслеживает изменения в хранилище)
+	// Запускаем логгер
 	go service.StartLogger()
 
-	// Блокировка main, чтобы горутины не завершились сразу
+	// Запускаем генератор сущностей
+	go service.StartGenerator(eventChannel)
+
+	// Блокируем main чтобы не завершился
 	select {}
 }
