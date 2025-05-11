@@ -1,21 +1,41 @@
 package main
 
 import (
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"github.com/Victoria-290/home-work-otus/Progect/internal/service"
 )
 
 func main() {
-	eventChannel := make(chan service.EntityEvent, 100)
+	// Создание контекста с возможностью отмены
+	ctx, cancel := context.WithCancel(context.Background())
 
-	// Запускаем асинхронную обработку сущностей
-	go service.StoreFromChannel(eventChannel)
+	// Каналы для обмена данными и завершения
+	eventCh := make(chan service.EntityEvent, 10)
+	done := make(chan struct{})
 
-	// Запускаем логгер
-	go service.StartLogger()
+	// Запуск горутин
+	go service.StartGenerator(ctx, eventCh)
+	go service.StoreFromChannel(ctx, eventCh)
+	go service.StartLogger(ctx, done)
 
-	// Запускаем генератор сущностей
-	go service.StartGenerator(eventChannel)
+	// Обработка сигнала завершения приложения
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Блокируем main чтобы не завершился
-	select {}
+	<-sigCh // Ожидание сигнала
+
+	log.Println("Shutdown signal received")
+
+	// Отмена контекста и ожидание завершения логгера
+	cancel()
+	time.Sleep(500 * time.Millisecond) // Подождать завершения задач
+	close(done)
+
+	log.Println("Application gracefully stopped")
 }
