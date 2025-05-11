@@ -1,19 +1,21 @@
 package main
 
 import (
-	"time"
 	"github.com/Victoria-290/home-work-otus/Progect/internal/service"
 )
 
 func main() {
-	// Запускаем генератор каждые 5 секунд
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	eventChannel := make(chan service.EntityEvent, 100)
 
-	for {
-		select {
-		case <-ticker.C:
-			service.GenerateAndStoreEntities()
-		}
-	}
+	// Запускаем асинхронную обработку сущностей
+	go service.StoreFromChannel(eventChannel)
+
+	// Запускаем логгер
+	go service.StartLogger()
+
+	// Запускаем генератор сущностей
+	go service.StartGenerator(eventChannel)
+
+	// Блокируем main чтобы не завершился
+	select {}
 }

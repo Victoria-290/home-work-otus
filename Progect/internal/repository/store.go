@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/auth"
@@ -9,14 +8,6 @@ import (
 	"github.com/Victoria-290/home-work-otus/Progect/internal/model/user"
 )
 
-// Storable — универсальный интерфейс, который реализуют все сущности.
-// Он позволяет передавать в Store() любые поддерживаемые типы.
-type Storable interface {
-	GetID() int64
-}
-
-// Мьютексы для каждого типа сущности —
-// позволяют избежать блокировки всех операций при добавлении только одного типа данных.
 var (
 	usersMu  sync.Mutex
 	tasksMu  sync.Mutex
@@ -27,36 +18,44 @@ var (
 	tokens []*auth.Token
 )
 
-// Store сохраняет сущность в нужный слайс по типу
-// Принимает сущность, реализующую интерфейс Storable,
-// и добавляет её в соответствующее хранилище в памяти.
-// Каждая ветка защищена своим мьютексом для минимизации блокировок.
-func Store(s Storable) {
-	switch v := s.(type) {
+// StoreUser сохраняет пользователя потокобезопасно
+func StoreUser(u *user.User) {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	users = append(users, u)
+}
 
-	// Добавление пользователя
-	case *user.User:
-		usersMu.Lock()
-		defer usersMu.Unlock()
-		users = append(users, v)
-		fmt.Println("Stored User:", v.Email)
+// StoreTask сохраняет задачу потокобезопасно
+func StoreTask(t *task.Task) {
+	tasksMu.Lock()
+	defer tasksMu.Unlock()
+	tasks = append(tasks, t)
+}
 
-	// Добавление задачи
-	case *task.Task:
-		tasksMu.Lock()
-		defer tasksMu.Unlock()
-		tasks = append(tasks, v)
-		fmt.Println("Stored Task:", v.Title)
+// StoreToken сохраняет токен потокобезопасно
+func StoreToken(tok *auth.Token) {
+	tokensMu.Lock()
+	defer tokensMu.Unlock()
+	tokens = append(tokens, tok)
+}
 
-	// Добавление токена
-	case *auth.Token:
-		tokensMu.Lock()
-		defer tokensMu.Unlock()
-		tokens = append(tokens, v)
-		fmt.Println("Stored Token for user ID:", v.UserID)
+// GetUsers возвращает копию списка пользователей
+func GetUsers() []*user.User {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	return append([]*user.User(nil), users...)
+}
 
-	// Неизвестный тип — не сохраняем
-	default:
-		fmt.Println("Unknown type, not stored")
-	}
+// GetTasks возвращает копию списка задач
+func GetTasks() []*task.Task {
+	tasksMu.Lock()
+	defer tasksMu.Unlock()
+	return append([]*task.Task(nil), tasks...)
+}
+
+// GetTokens возвращает копию списка токенов
+func GetTokens() []*auth.Token {
+	tokensMu.Lock()
+	defer tokensMu.Unlock()
+	return append([]*auth.Token(nil), tokens...)
 }
