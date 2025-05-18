@@ -8,8 +8,8 @@ import (
 	"github.com/Victoria-290/home-work-otus/Progect/internal/repository"
 )
 
-// StartLogger — периодически логирует новые добавленные сущности. Завершается по context.
-func StartLogger(ctx context.Context, done <-chan struct{}) {
+// StartLogger — горутина, которая логирует появление новых сущностей
+func StartLogger(ctx context.Context) {
 	var lastUsersCount, lastTasksCount, lastTokensCount int
 
 	ticker := time.NewTicker(200 * time.Millisecond)
@@ -18,10 +18,10 @@ func StartLogger(ctx context.Context, done <-chan struct{}) {
 	for {
 		select {
 		case <-ctx.Done():
-			return
-		case <-done:
+			fmt.Println("[Logger] Завершение логгера...")
 			return
 		case <-ticker.C:
+			// Проверка новых пользователей
 			users := repository.GetUsers()
 			if len(users) > lastUsersCount {
 				for _, u := range users[lastUsersCount:] {
@@ -30,6 +30,7 @@ func StartLogger(ctx context.Context, done <-chan struct{}) {
 				lastUsersCount = len(users)
 			}
 
+			// Проверка новых задач
 			tasks := repository.GetTasks()
 			if len(tasks) > lastTasksCount {
 				for _, t := range tasks[lastTasksCount:] {
@@ -38,6 +39,7 @@ func StartLogger(ctx context.Context, done <-chan struct{}) {
 				lastTasksCount = len(tasks)
 			}
 
+			// Проверка новых токенов
 			tokens := repository.GetTokens()
 			if len(tokens) > lastTokensCount {
 				for _, tok := range tokens[lastTokensCount:] {
