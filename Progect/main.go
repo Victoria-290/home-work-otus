@@ -2,40 +2,37 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/Victoria-290/home-work-otus/Progect/internal/service"
 )
 
 func main() {
-	// Создание контекста с возможностью отмены
+	// Создаем контекст с отменой, чтобы управлять завершением работы всех горутин
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Каналы для обмена данными и завершения
-	eventCh := make(chan service.EntityEvent, 10)
-	done := make(chan struct{})
+	// Канал для передачи событий (EntityEvent) от генератора к обработчику
+	events := make(chan service.EntityEvent, 100)
 
-	// Запуск горутин
-	go service.StartGenerator(ctx, eventCh)
-	go service.StoreFromChannel(ctx, eventCh)
-	go service.StartLogger(ctx, done)
+	// Запуск генератора данных: пользователей, задач, токенов
+	go service.StartGenerator(ctx, events)
 
-	// Обработка сигнала завершения приложения
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// Запуск асинхронного обработчика событий — сохранение в память и файлы
+	go service.StoreFromChannel(ctx, events)
 
-	<-sigCh // Ожидание сигнала
+	// Запуск логгера, который отслеживает появление новых структур
+	go service.StartLogger(ctx)
 
-	log.Println("Shutdown signal received")
+	// Канал для прослушивания сигналов ОС (SIGINT, SIGTERM)
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	// Отмена контекста и ожидание завершения логгера
-	cancel()
-	time.Sleep(500 * time.Millisecond) // Подождать завершения задач
-	close(done)
+	// Блокируемся до получения сигнала завершения
+	<-sig
+	cancel() // Отправляем сигнал завершения всем горутинам через контекст
 
-	log.Println("Application gracefully stopped")
+	// После cancel() все горутины должны корректно завершиться
 }
